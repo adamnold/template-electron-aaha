@@ -1,0 +1,41 @@
+{
+  "name": "my-web-app",
+  "productName": "My Web App",
+  "version": "1.0.0",
+  "description": "Web app desktop wrapper (Electron) by Adam And His Agents",
+  "main": "src/main.js",
+  "author": "Adam And His Agents (AAHA)",
+  "license": "Apache-2.0",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.adamandhisagents.mywebapp",
+    "productName": "My Web App",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "dir",
+        "AppImage"
+      ],
+      "category": "Network",
+      "icon": "icons",
+      "executableName": "my-web-app",
+      "desktop": {
+        "Name": "My Web App",
+        "Comment": "Web app desktop wrapper",
+        "Categories": "Network;",
+        "StartupWMClass": "My Web App"
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+Web App Wrapper (AAHA)
+Copyright 2026 Adam And His Agents (AAHA)
+
+Licensed under the Apache License, Version 2.0.
+
+This is a generic Electron wrapper scaffold. Any service you wrap with it
+(Proton apps, Perplexity, etc.) remains the property of its respective owner
+and is subject to that provider's Terms of Service and trademarks. This
+project bundles no third-party service code; it only loads the provider's
+own web app in an Electron window at runtime.

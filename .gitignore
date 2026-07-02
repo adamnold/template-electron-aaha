@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+*.AppImage
+npm-debug.log*
+.DS_Store
+*.swp
+.idea/
+.vscode/
