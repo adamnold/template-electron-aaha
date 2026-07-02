@@ -1,7 +1,7 @@
 {
   "name": "my-web-app",
   "productName": "My Web App",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Web app desktop wrapper (Electron) by Adam And His Agents",
   "main": "src/main.js",
   "author": "Adam And His Agents (AAHA)",
@@ -30,6 +30,7 @@
       "category": "Network",
       "icon": "icons",
       "executableName": "my-web-app",
+      "artifactName": "my-web-app-aaha-${version}-${arch}.AppImage",
       "desktop": {
         "Name": "My Web App",
         "Comment": "Web app desktop wrapper",

@@ -27,6 +27,8 @@ pkg.description = name + " desktop wrapper (Electron) by Adam And His Agents";
 pkg.build.appId = appId;
 pkg.build.productName = name;
 pkg.build.linux.executableName = slug;
+// AppImage filename: lowercase slug + -aaha- + version + arch, no spaces.
+pkg.build.linux.artifactName = slug + "-aaha-${version}-${arch}.AppImage";
 pkg.build.linux.desktop.Name = name;
 pkg.build.linux.desktop.Comment = name + " desktop wrapper";
 pkg.build.linux.desktop.StartupWMClass = wmClass;
