@@ -7,10 +7,20 @@ if [[ ! -f "$SOURCE" ]]; then
   exit 1
 fi
 mkdir -p build/icons
+if command -v magick >/dev/null 2>&1; then
+  resize=(magick)
+  identify=(magick identify)
+elif command -v convert >/dev/null 2>&1 && command -v identify >/dev/null 2>&1; then
+  resize=(convert)
+  identify=(identify)
+else
+  echo "ERROR: ImageMagick 6 or 7 is required to generate icons." >&2
+  exit 1
+fi
 for size in 16 24 32 48 64 96 128 256 512; do
-  magick "$SOURCE" -background none -resize "${size}x${size}" "build/icons/${size}x${size}.png"
+  "${resize[@]}" "$SOURCE" -background none -resize "${size}x${size}" "build/icons/${size}x${size}.png"
 done
-identify_output="$(magick identify -format '%m %w %h %[channels]' build/icons/512x512.png)"
+identify_output="$("${identify[@]}" -format '%m %w %h %[channels]' build/icons/512x512.png)"
 if [[ "$identify_output" != PNG*512*512* ]]; then
   echo "ERROR: generated icon validation failed: $identify_output" >&2
   exit 1
