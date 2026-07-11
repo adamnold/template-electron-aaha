@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const root = path.resolve(__dirname, "..");
+const profileName = require("../app.config.js").profileName;
 function run(home, args = []) {
   return spawnSync("bash", ["uninstall.sh", ...args], {
     cwd: root,
@@ -15,7 +16,7 @@ function run(home, args = []) {
 }
 test("normal uninstall preserves profile", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "aaha-uninstall-"));
-  const profile = path.join(home, ".config", "REPLACE ME");
+  const profile = path.join(home, ".config", profileName);
   fs.mkdirSync(profile, { recursive: true });
   fs.writeFileSync(path.join(profile, "cookie"), "preserve");
   const result = run(home);
@@ -24,7 +25,7 @@ test("normal uninstall preserves profile", () => {
 });
 test("--purge removes only configured profile", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "aaha-purge-"));
-  const profile = path.join(home, ".config", "REPLACE ME");
+  const profile = path.join(home, ".config", profileName);
   const unrelated = path.join(home, ".config", "Unrelated");
   fs.mkdirSync(profile, { recursive: true });
   fs.mkdirSync(unrelated, { recursive: true });
