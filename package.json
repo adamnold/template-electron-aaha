@@ -1,25 +1,32 @@
 {
-  "name": "my-web-app",
-  "productName": "My Web App",
-  "version": "1.0.1",
-  "description": "Web app desktop wrapper (Electron) by Adam And His Agents",
+  "name": "webapp-wrapper-aaha",
+  "productName": "AAHA Web App",
+  "version": "2.0.0",
+  "description": "Security-conscious Electron web-app wrapper template by Adam And His Agents",
   "main": "src/main.js",
   "author": "Adam And His Agents (AAHA)",
   "license": "Apache-2.0",
+  "private": true,
   "scripts": {
     "start": "electron .",
+    "check": "node --check src/main.js && node --check src/policy.js && node --check app.config.js && node scripts/validate-config.js",
+    "check:template": "node --check src/main.js && node --check src/policy.js && node --check app.config.js && node scripts/validate-config.js --template",
+    "test": "node --test",
+    "icons": "bash scripts/generate-icons.sh",
     "dist": "electron-builder --linux"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron": "43.1.0",
+    "electron-builder": "26.15.3"
   },
   "build": {
-    "appId": "com.adamandhisagents.mywebapp",
-    "productName": "My Web App",
+    "appId": "com.adamandhisagents.REPLACE_ME",
+    "productName": "REPLACE ME",
     "asar": true,
     "files": [
       "src/**/*",
+      "app.config.js",
+      "build/icons/**/*",
       "package.json"
     ],
     "linux": {
@@ -28,14 +35,20 @@
         "AppImage"
       ],
       "category": "Network",
-      "icon": "icons",
-      "executableName": "my-web-app",
-      "artifactName": "my-web-app-aaha-${version}-${arch}.AppImage",
+      "icon": "build/icons",
+      "executableName": "replace-me-aaha",
+      "artifactName": "replace-me-aaha-v${version}-${arch}.AppImage",
+      "syncDesktopName": true,
       "desktop": {
-        "Name": "My Web App",
-        "Comment": "Web app desktop wrapper",
-        "Categories": "Network;",
-        "StartupWMClass": "My Web App"
+        "entry": {
+          "Name": "REPLACE ME",
+          "Comment": "AAHA web application",
+          "Categories": "Network;",
+          "Keywords": "web;application;",
+          "StartupWMClass": "com.adamandhisagents.REPLACE_ME",
+          "Terminal": false,
+          "Type": "Application"
+        }
       }
     }
   }

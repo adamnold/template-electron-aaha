@@ -1,109 +1,135 @@
-const { app, BrowserWindow, shell, Menu } = require("electron");
-const path = require("path");
-const cfg = require("./app.config.js");
+"use strict";
 
-// Set the Wayland/X11 app id BEFORE the app is ready so KDE associates
-// the window with the correct .desktop entry and keeps your custom icon.
-app.setName(cfg.name);
+const { app, BrowserWindow, Menu, session, shell } = require("electron");
+const path = require("node:path");
+const cfg = require("../app.config.js");
+const {
+  classifyNavigation,
+  isBlockedRequest,
+  parseUrl,
+  permissionAllowed,
+  validateConfig
+} = require("./policy.js");
+
+const errors = validateConfig(cfg);
+if (errors.length) {
+  throw new Error(`Invalid app.config.js:\n- ${errors.join("\n- ")}`);
+}
+
+app.setName(cfg.productName);
+app.setPath("userData", path.join(app.getPath("appData"), cfg.profileName));
+
 if (process.platform === "linux") {
-  // This is what KDE Plasma reads as the WM class on Wayland.
-  app.commandLine.appendSwitch("class", cfg.wmClass);
+  app.commandLine.appendSwitch("class", cfg.appId);
 }
 
-// ---------------------------------------------------------------------------
-//  PRIVACY HARDENING
-//  Electron's embedded Chromium already omits most browser-level Google
-//  services (Safe Browsing, sync, GoogleURLTracker, the Chrome updater, etc.)
-//  because it is an app runtime, not a browser. These switches make that
-//  explicit and shut off the remaining background/phone-home subsystems so
-//  the app stays network-silent except for the site it wraps.
-//  Set cfg.disableHardening = true in app.config.js to opt out.
-// ---------------------------------------------------------------------------
-if (!cfg.disableHardening) {
-  // Disables several subsystems that make background network requests
-  // (metrics, translate, intranet redirect detector, etc.).
-  app.commandLine.appendSwitch("disable-background-networking");
-  // Stops Chromium's "domain reliability" error-reporting beacons to Google.
-  app.commandLine.appendSwitch("disable-domain-reliability");
-  // Prevents fetching/updating bundled components from Google servers.
-  app.commandLine.appendSwitch("disable-component-update");
-  // Turns off network-time queries, translate, and optimization-hint fetches.
-  app.commandLine.appendSwitch(
-    "disable-features",
-    "NetworkTimeServiceQuerying,Translate,OptimizationHints,MediaRouter"
-  );
-  // No usage/crash metrics.
-  app.commandLine.appendSwitch("disable-breakpad");
-}
+app.commandLine.appendSwitch("disable-background-networking");
+app.commandLine.appendSwitch("disable-component-update");
+app.commandLine.appendSwitch("disable-domain-reliability");
+app.commandLine.appendSwitch("disable-breakpad");
+app.commandLine.appendSwitch("dns-over-https-mode", "off");
+app.commandLine.appendSwitch(
+  "disable-features",
+  "NetworkTimeServiceQuerying,Translate,OptimizationHints,MediaRouter"
+);
 
 let mainWindow;
+const auditedHosts = new Set();
 
-function hostMatches(urlString) {
-  if (!cfg.allowedHosts || cfg.allowedHosts.length === 0) return true;
-  try {
-    const host = new URL(urlString).hostname;
-    return cfg.allowedHosts.some(
-      (h) => host === h || host.endsWith("." + h)
-    );
-  } catch (e) {
-    return false;
+function safeOpenExternal(url) {
+  if (classifyNavigation(url, cfg) !== "external") return;
+  setImmediate(() => shell.openExternal(url).catch((error) => console.error("[external]", error.message)));
+}
+
+function secureWebPreferences() {
+  return {
+    sandbox: true,
+    contextIsolation: true,
+    nodeIntegration: false,
+    webSecurity: true,
+    allowRunningInsecureContent: false,
+    spellcheck: true
+  };
+}
+
+function configureWebContents(contents) {
+  contents.on("will-attach-webview", (event) => event.preventDefault());
+
+  for (const eventName of ["will-navigate", "will-redirect"]) {
+    contents.on(eventName, (event, url) => {
+      const classification = classifyNavigation(url, cfg);
+      if (classification === "internal" || classification === "authentication") return;
+      event.preventDefault();
+      safeOpenExternal(url);
+    });
   }
+
+  contents.setWindowOpenHandler(({ url }) => {
+    const classification = classifyNavigation(url, cfg);
+    if (classification === "internal" || classification === "authentication") {
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          autoHideMenuBar: true,
+          parent: mainWindow || undefined,
+          webPreferences: secureWebPreferences()
+        },
+        outlivesOpener: false
+      };
+    }
+    safeOpenExternal(url);
+    return { action: "deny" };
+  });
 }
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: cfg.width,
     height: cfg.height,
-    title: cfg.name,
+    title: cfg.productName,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, "icon.png"),
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      spellcheck: true
-    }
+    icon: path.join(__dirname, "../build/icons/512x512.png"),
+    webPreferences: secureWebPreferences()
+  });
+  mainWindow.loadURL(cfg.url);
+}
+
+function configureSession() {
+  const ses = session.defaultSession;
+  ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    const origin = requestingOrigin || webContents?.getURL() || "";
+    return permissionAllowed(permission, origin, cfg);
+  });
+  ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const origin = details.requestingUrl || webContents?.getURL() || "";
+    callback(permissionAllowed(permission, origin, cfg));
   });
 
-  // Optional custom user-agent (helps sites that sniff for a "real" browser).
-  const loadOpts = {};
-  if (cfg.userAgent) {
-    loadOpts.userAgent = cfg.userAgent;
-  }
-  mainWindow.loadURL(cfg.url, loadOpts);
-
-  // Links that open a NEW window/tab -> send to system browser if external.
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (cfg.openExternalInBrowser && !hostMatches(url)) {
-      shell.openExternal(url);
-      return { action: "deny" };
+  ses.webRequest.onBeforeRequest((details, callback) => {
+    const parsed = parseUrl(details.url);
+    if (process.env.AAHA_NETWORK_AUDIT === "1" && parsed && !auditedHosts.has(parsed.hostname)) {
+      auditedHosts.add(parsed.hostname);
+      console.error(`[network] ${parsed.hostname}`);
     }
-    return { action: "allow" };
-  });
-
-  // In-page navigation to a foreign host -> bounce to system browser.
-  mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (cfg.openExternalInBrowser && !hostMatches(url)) {
-      event.preventDefault();
-      shell.openExternal(url);
-    }
+    callback({ cancel: isBlockedRequest(details.url, cfg) });
   });
 }
 
-// Single-instance lock: clicking the panel icon focuses the existing
-// window instead of spawning a second copy.
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
+  app.on("web-contents-created", (_event, contents) => configureWebContents(contents));
   app.on("second-instance", () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
   });
 
   app.whenReady().then(() => {
-    Menu.setApplicationMenu(null); // clean, app-like (no menu bar)
+    Menu.setApplicationMenu(null);
+    configureSession();
     createWindow();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
