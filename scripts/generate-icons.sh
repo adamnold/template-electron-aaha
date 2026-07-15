@@ -18,7 +18,9 @@ else
   exit 1
 fi
 for size in 16 24 32 48 64 96 128 256 512; do
-  "${resize[@]}" "$SOURCE" -background none -resize "${size}x${size}" "build/icons/${size}x${size}.png"
+  "${resize[@]}" "$SOURCE" -background none -resize "${size}x${size}" \
+    -strip -define png:exclude-chunks=date,time \
+    "build/icons/${size}x${size}.png"
 done
 identify_output="$("${identify[@]}" -format '%m %w %h %[channels]' build/icons/512x512.png)"
 if [[ "$identify_output" != PNG*512*512* ]]; then

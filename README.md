@@ -20,4 +20,11 @@ The default configuration contains invalid placeholders and configured is false.
 
 Review the service’s official browser support, branding, authentication, uploads/downloads, permissions, DRM, providers, privacy behavior, and Fedora KDE compatibility before publication.
 
+Generated wrappers run their AppImage directly from any location or use the
+optional installer. The installer defaults to
+`~/.local/opt/aaha/<repo-name>` and accepts
+`--install-root /absolute/path/<repo-name>` for an explicit per-application
+destination. It records an XDG-state receipt and matching install marker so an
+uninstaller cannot guess or delete an unverified directory.
+
 This project is unofficial and is not affiliated with any wrapped service vendor.

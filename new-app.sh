@@ -20,6 +20,8 @@ if [[ ! -f "$DEFINITION" ]]; then
   exit 1
 fi
 mkdir -p "$DEST"
-cp -a .github LICENSE NOTICE README.md PRIVACY.md CONTRIBUTING.md CHANGELOG.md +  package.json app.config.js src scripts test templates +  build.sh install.sh uninstall.sh new-app.sh "$DEST/"
+cp -a .github LICENSE NOTICE README.md PRIVACY.md CONTRIBUTING.md CHANGELOG.md \
+  package.json package-lock.json app.config.js src scripts test templates \
+  build.sh install.sh uninstall.sh new-app.sh "$DEST/"
 node scripts/materialize-app.js "$DEST" "$DEFINITION"
 echo "Created $DEST. Add assets/icon-source.png, review policy, then run ./build.sh."

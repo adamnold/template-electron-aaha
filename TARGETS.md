@@ -8,6 +8,10 @@ URL 404s, grab one via DevTools → Application → Manifest → Icons.
 > After each `new-app.sh`, do:
 > `cd ../<slug> && ./build.sh && ./install.sh`
 
+Use `./install.sh --install-root /absolute/path/<slug>` only when an explicit
+per-application location is required. Direct AppImage execution creates no
+installation directory.
+
 ---
 
 ## Proton suite (web-only pieces)
