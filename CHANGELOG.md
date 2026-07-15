@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.0.1 — 2026-07-15
+
+- Added the standard `~/.local/opt/aaha/<repo-name>` default, explicit custom
+  roots, guarded XDG-state receipts, and matching installation markers.
+- Added regression coverage for default/custom installation, unsafe paths,
+  receipt mismatch, marker tampering, profile preservation, and purge.
+- Fixed `new-app.sh` so it copies the intended template files instead of
+  treating formatting separators as filenames.
+- Kept generated `package-lock.json` identity and version synchronized with the
+  materialized application definition.
+- Made generated icon sets deterministic by removing variable PNG metadata.
+
 ## v2.0.0 — 2026-07-11
 
 - Replaced the mutating Electron 31 scaffold with exact Electron 43.1.0 and electron-builder 26.15.3.

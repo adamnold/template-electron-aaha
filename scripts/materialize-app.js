@@ -31,6 +31,17 @@ pkg.build.linux.desktop.entry.Categories = definition.category;
 pkg.build.linux.desktop.entry.Keywords = definition.keywords;
 pkg.build.linux.desktop.entry.StartupWMClass = definition.appId;
 fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + "\n");
+
+const lockPath = path.join(destination, "package-lock.json");
+const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+lock.name = pkg.name;
+lock.version = pkg.version;
+if (lock.packages && lock.packages[""]) {
+  lock.packages[""].name = pkg.name;
+  lock.packages[""].version = pkg.version;
+}
+fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + "\n");
+
 fs.writeFileSync(
   path.join(destination, "app.config.js"),
   '"use strict";\n\nmodule.exports = ' + JSON.stringify(definition, null, 2) + ";\n"
