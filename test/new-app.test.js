@@ -35,10 +35,17 @@ test("new-app creates a clean scaffold with synchronized locked identity", (t) =
 
   const pkg = JSON.parse(fs.readFileSync(path.join(destination, "package.json"), "utf8"));
   const lock = JSON.parse(fs.readFileSync(path.join(destination, "package-lock.json"), "utf8"));
+  const workflow = fs.readFileSync(
+    path.join(destination, ".github", "workflows", "ci.yml"),
+    "utf8"
+  );
   assert.equal(pkg.name, definition.repoName);
   assert.equal(pkg.version, definition.version);
+  assert.equal(pkg.scripts.dist, "electron-builder --linux --publish never");
   assert.equal(lock.name, definition.repoName);
   assert.equal(lock.version, definition.version);
   assert.equal(lock.packages[""].name, definition.repoName);
   assert.equal(lock.packages[""].version, definition.version);
+  assert.match(workflow, /actions\/checkout@v7/);
+  assert.match(workflow, /actions\/setup-node@v7/);
 });

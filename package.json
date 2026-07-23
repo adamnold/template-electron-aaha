@@ -13,7 +13,7 @@
     "check:template": "node --check src/main.js && node --check src/policy.js && node --check app.config.js && node scripts/validate-config.js --template",
     "test": "node --test",
     "icons": "bash scripts/generate-icons.sh",
-    "dist": "electron-builder --linux"
+    "dist": "electron-builder --linux --publish never"
   },
   "devDependencies": {
     "electron": "43.1.0",
