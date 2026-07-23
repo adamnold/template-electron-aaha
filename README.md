@@ -1,5 +1,7 @@
 # AAHA Web-App Wrapper v2
 
+Last Updated: 2026-07-23
+
 Private template for unofficial Linux Electron wrappers with stable KDE Wayland identity, explicit security policy, honest privacy disclosure, reproducible builds, and safe install/uninstall behavior.
 
 ## Privacy notice

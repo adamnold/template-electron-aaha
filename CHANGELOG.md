@@ -1,7 +1,11 @@
 # Changelog
 
+Last Updated: 2026-07-23
+
 ## Unreleased — 2026-07-23
 
+- Added explicit current dates to the durable README, privacy, and changelog
+  guidance.
 - Made validation and generated AppImage builds explicitly non-publishing so
   `electron-builder` cannot infer a GitHub release from CI.
 - Updated generated workflows to the Node 24-backed v7 checkout and Node setup
