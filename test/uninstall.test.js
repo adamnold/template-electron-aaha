@@ -88,6 +88,46 @@ test("custom install root is recorded and normal uninstall preserves the profile
   assert.equal(fs.existsSync(profile), true);
 });
 
+test("compatibility aliases use the configured application description", (t) => {
+  const fixture = createFixture(t);
+  const compatibilityDesktopId = "com.adamandhisagents.example-legacy";
+  const fixtureConfig = {
+    ...config,
+    compatibilityDesktopIds: [compatibilityDesktopId]
+  };
+  fs.writeFileSync(
+    path.join(fixture.repo, "app.config.js"),
+    `"use strict";\n\nmodule.exports = ${JSON.stringify(fixtureConfig, null, 2)};\n`
+  );
+
+  const result = run(fixture, "install.sh");
+  assert.equal(result.status, 0, result.stderr);
+  const alias = fs.readFileSync(
+    path.join(
+      fixture.home,
+      ".local",
+      "share",
+      "applications",
+      `${compatibilityDesktopId}.desktop`
+    ),
+    "utf8"
+  );
+  const entry = (key) => alias.split("\n").find((line) => line.startsWith(`${key}=`));
+  const expectedRoot = path.join(
+    fixture.home,
+    ".local",
+    "opt",
+    "aaha",
+    config.repoName
+  );
+  assert.equal(entry("Comment"), `Comment=${config.comment}`);
+  assert.equal(entry("NoDisplay"), "NoDisplay=true");
+  assert.equal(
+    entry("Exec"),
+    `Exec="${path.join(expectedRoot, "app", config.executable)}"`
+  );
+});
+
 test("--purge removes only the configured profile", (t) => {
   const fixture = createFixture(t);
   const installRoot = path.join(fixture.home, "MyLocalApps", config.repoName);
