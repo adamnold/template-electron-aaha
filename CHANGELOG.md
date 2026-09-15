@@ -1,6 +1,11 @@
 # Changelog
 
-Last Updated: 2026-07-23
+Last Updated: 2026-09-15
+
+## v2.1.0 — 2026-09-15
+
+- Bumped the template from exact Electron 43.1.0 to exact Electron 44.3.0 while keeping electron-builder pinned to 26.15.3.
+- Raised the template application version from 2.0.1 to 2.1.0 and refreshed the locked dependency tree.
 
 ## Unreleased — 2026-07-23
 
