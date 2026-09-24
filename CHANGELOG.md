@@ -1,8 +1,18 @@
 # Changelog
 
-Last Updated: 2026-07-23
+Last Updated: 2026-09-24
 
-## Unreleased — 2026-07-23
+## v2.1.0 — 2026-09-24
+
+- Updated from exact Electron 43.1.0 to exact Electron 44.4.5 (Chromium
+  security fixes); no template source, security policy, or profile changes
+  were needed for the Electron 44 breaking changes.
+- Refreshed the locked build tooling to clear every `npm audit` finding,
+  including the `brace-expansion`, `tar`, `undici`, and `js-yaml` advisories
+  that had begun failing the required CI audit step on `master`.
+- Supersedes the unmerged Copilot Electron 44.3.0 draft.
+
+## Also shipped in v2.1.0 (prepared 2026-07-23)
 
 - Added explicit current dates to the durable README, privacy, and changelog
   guidance.
