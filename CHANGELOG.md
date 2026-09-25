@@ -2,6 +2,12 @@
 
 Last Updated: 2026-09-24
 
+## Unreleased — 2026-09-25
+
+- Fixed stale AppImages being installed next to the new one: `build.sh` now
+  clears `dist/` before building, and both `build.sh` and `install.sh` require
+  exactly one AppImage.
+
 ## v2.1.0 — 2026-09-24
 
 - Updated from exact Electron 43.1.0 to exact Electron 44.4.5 (Chromium
