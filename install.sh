@@ -183,7 +183,12 @@ EOF
 done < <(node -e "for (const p of require('./app.config.js').compatibilityDesktopIds) console.log(p)")
 
 find "$INSTALL_ROOT" -maxdepth 1 -type f -name '*.AppImage' -delete
-cp dist/*.AppImage "$INSTALL_ROOT/"
+mapfile -t built_appimages < <(find dist -maxdepth 1 -type f -name '*.AppImage')
+if [[ ${#built_appimages[@]} -ne 1 ]]; then
+  echo "ERROR: expected exactly one AppImage in dist/, found ${#built_appimages[@]}. Run ./build.sh again." >&2
+  exit 1
+fi
+cp "${built_appimages[0]}" "$INSTALL_ROOT/"
 cp dist/SHA256SUMS "$INSTALL_ROOT/"
 printf 'AAHA_INSTALL_V1\nrepo=%s\napp_id=%s\n' "$REPO_NAME" "$APP_ID" > "$INSTALL_MARKER"
 chmod 0644 "$INSTALL_MARKER"
