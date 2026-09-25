@@ -23,5 +23,8 @@ mkdir -p "$DEST"
 cp -a .github LICENSE NOTICE README.md PRIVACY.md CONTRIBUTING.md CHANGELOG.md \
   package.json package-lock.json app.config.js src scripts test templates \
   build.sh install.sh uninstall.sh new-app.sh "$DEST/"
+# Generated apps publish AppImages, not template archives.
+rm -f "$DEST/.github/workflows/release-template.yml"
+cp templates/app-release.yml "$DEST/.github/workflows/release.yml"
 node scripts/materialize-app.js "$DEST" "$DEFINITION"
 echo "Created $DEST. Add assets/icon-source.png, review policy, then run ./build.sh."
