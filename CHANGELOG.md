@@ -1,9 +1,16 @@
 # Changelog
 
-Last Updated: 2026-09-24
+Last Updated: 2026-09-25
 
-## Unreleased — 2026-09-25
+## v2.1.1 — 2026-09-25
 
+- Added a manual-only `Release template` workflow that validates the scaffold
+  and attaches `webapp-wrapper-aaha-<tag>.tar.gz` (a `git archive` of the
+  release commit) with `webapp-wrapper-aaha-<tag>-SHA256SUMS`, matching the
+  v2.0.x release format. v2.1.0 was published without these files.
+- Generated apps now receive the manual AppImage Release workflow
+  (`templates/app-release.yml` → `.github/workflows/release.yml`) used by the
+  existing AAHA apps, and do not inherit the template's archive workflow.
 - Fixed stale AppImages being installed next to the new one: `build.sh` now
   clears `dist/` before building, and both `build.sh` and `install.sh` require
   exactly one AppImage.

@@ -48,4 +48,18 @@ test("new-app creates a clean scaffold with synchronized locked identity", (t) =
   assert.equal(lock.packages[""].version, definition.version);
   assert.match(workflow, /actions\/checkout@v7/);
   assert.match(workflow, /actions\/setup-node@v7/);
+  const workflows = path.join(destination, ".github", "workflows");
+  assert.equal(fs.existsSync(path.join(workflows, "release-template.yml")), false);
+  const release = fs.readFileSync(path.join(workflows, "release.yml"), "utf8");
+  assert.match(release, /workflow_dispatch:/);
+  assert.match(release, /^\s*- run: \.\/build\.sh$/m);
+});
+
+test("template release workflow is manual-only and archives the target commit", () => {
+  const wf = fs.readFileSync(path.join(root, ".github", "workflows", "release-template.yml"), "utf8");
+  const trigger = wf.slice(wf.indexOf("\non:"), wf.indexOf("\npermissions:"));
+  assert.match(trigger, /workflow_dispatch:/);
+  assert.doesNotMatch(trigger, /\b(push|pull_request|release|schedule):/);
+  assert.match(wf, /git archive --format=tar\.gz/);
+  assert.match(wf, /webapp-wrapper-aaha-\$TAG-SHA256SUMS/);
 });
