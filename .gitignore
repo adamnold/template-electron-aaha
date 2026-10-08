@@ -7,3 +7,6 @@ npm-debug.log*
 *.swp
 .idea/
 .vscode/
+.superpowers/
+*.key
+build/

@@ -1,0 +1,11 @@
+# Dependency validation — 2026-10-08
+
+Pinned build environment: Node 24.21.0 / npm 11.19.0. Electron 44.7.0 embeds Chromium 152.0.7977.130 and Node 24.21.0, observed from the downloaded runtime. electron-builder 26.17.0 and @electron/fuses 2.1.3 are exact development pins. Lockfiles are committed and ordinary builds use `npm ci`.
+
+The refreshed audit gate `npm audit --audit-level=high` exits successfully: **0 high/critical, 8 moderate affected-package entries**. These entries propagate one underlying [sprintf-js advisory](https://github.com/advisories/GHSA-hp3w-g68c-fv3c); all are development/build dependencies. The relevant path is electron-builder → app-builder-lib → @electron/get 3.1.0 → global-agent 3.0.0 → roarr 2.15.4 → sprintf-js 1.1.3. Additional builder package entries propagate the same dependency issue. No patched sprintf-js release is listed. A forced builder downgrade is not an acceptable universal remediation.
+
+The precision parsing issue remains in sprintf-js. It needs an attacker-controlled format string to reach numeric formatting. The wrapper ships no renderer Node bridge and packages no npm runtime dependency tree; no shipped-app exploit was established. This is an exposure assessment, not a declaration that build tooling is immune.
+
+A targeted compatible lockfile update selected http-cache-semantics 4.3.0 through cacheable-request's existing range: electron-builder → app-builder-lib → @electron/get 3.1.0 → got 11.8.6 → cacheable-request 7.0.4 → http-cache-semantics 4.3.0. npm no longer flags this node, but the [cross-user cached-response advisory](https://github.com/advisories/GHSA-ch52-4w7c-c8xp) still lists no patched version. A version outside the database range alone does not prove the security defect fixed. The wrapper does not implement a shared multi-user HTTP cache; this library is in build/download tooling. Continue tracking upstream resolution.
+
+Every generated application's actual refreshed lockfile needs its own audit. Historical zero-finding statements in immutable release notes describe older runs, not this result. Build metadata records actual runtime, tool, runner and packaging-binary versions/digests; locked dependencies do not guarantee bit-for-bit identical artifacts.

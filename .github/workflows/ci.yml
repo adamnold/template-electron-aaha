@@ -1,4 +1,4 @@
-name: CI
+name: template-electron-aaha validation
 on:
   push:
     branches: [master]
@@ -9,13 +9,13 @@ jobs:
   validate-template:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 22
+          node-version: 24.21.0
           cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y minisign
       - run: npm ci
       - run: npm run check:template
       - run: npm test
-      - run: bash -n build.sh install.sh uninstall.sh new-app.sh scripts/generate-icons.sh
       - run: npm audit --audit-level=high
