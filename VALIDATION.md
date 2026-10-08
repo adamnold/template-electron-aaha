@@ -6,6 +6,7 @@
 - Live development, installed and direct AppImage renderers passed: renderer PID namespace depth exceeds the browser's; `NoNewPrivs=1`, seccomp mode 2, and two seccomp filters versus the browser's one. These compare against the surrounding execution environment rather than mistaking its inherited filtering for Chromium's sandbox.
 - Both double- and single-dash unsafe switches are refused across development, installed, direct AppImage and native entry points before any hostname audit request. Simulated namespace failure makes the AppImage's unsandboxed fallback fail closed.
 - One fresh independent bypass/regression review identified a source-side icon dependency and a single-dash Chromium switch bypass. Both were confirmed and corrected; focused regression tests passed. The reviewer found no surviving original privileged helper promotion route.
+- Unsigned metadata collection was exercised with Minisign absent from PATH and records a null signer; signed workflows explicitly require an unencrypted CI key and fail noninteractive signing errors.
 - The high audit gate passes; eight moderate build-dependency entries remain. See `DEPENDENCIES.md` for dated paths and limits.
 
 Scope limits: no real Proton accounts, funds or signed-in service sessions were used. Authentication, service-specific permissions, clipboard, downloads, notifications and owner-managed rollout remain per-app acceptance work. Source history and existing release assets remain immutable. Successful remote release publication is reported separately from these local checks.

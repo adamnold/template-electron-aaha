@@ -9,6 +9,12 @@ function command(cmd, args, env = process.env) {
   if (r.status !== 0) throw new Error(`Cannot record ${cmd}: ${r.stderr || r.error || r.status}`);
   return r.stdout.trim();
 }
+function signerVersion(env = process.env) {
+  const result = spawnSync("minisign", ["-v"], { encoding: "utf8", env });
+  if (result.error?.code === "ENOENT") return null;
+  if (result.status !== 0) throw new Error("Cannot record minisign version.");
+  return result.stdout.trim();
+}
 function packageVersion(name) {
   let directory = path.dirname(require.resolve(name));
   while (!fs.existsSync(path.join(directory, "package.json"))) directory = path.dirname(directory);
@@ -30,7 +36,7 @@ async function main() {
       electronBuilder: require("electron-builder/package.json").version,
       electronFuses: packageVersion("@electron/fuses"),
       builderUtil: packageVersion("builder-util"),
-      minisign: command("minisign", ["-v"]),
+      minisign: signerVersion(),
       imageMagick: command(fs.existsSync("/usr/bin/magick") ? "magick" : "convert", ["-version"]).split("\n")[0] },
     runner: { os: os.platform(), release: os.release(), image: process.env.ImageOS || null, imageVersion: process.env.ImageVersion || null },
     builtAt: new Date().toISOString()
@@ -43,4 +49,5 @@ async function main() {
   }
   fs.writeFileSync(path.join(directory, "BUILDINFO.json"), JSON.stringify(info, null, 2) + "\n");
 }
-main().catch(error => { console.error(error.message); process.exitCode = 1; });
+if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
+module.exports = { signerVersion };

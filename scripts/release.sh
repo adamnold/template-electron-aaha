@@ -33,7 +33,7 @@ trap 'rm -f "$key"' EXIT
 [[ -n "${MINISIGN_SECRET_KEY:-}" ]] || { echo 'Release signing secret missing' >&2; exit 1; }
 printf '%s\n' "$MINISIGN_SECRET_KEY" > "$key"
 unset MINISIGN_SECRET_KEY
-minisign -Sm dist/SHA256SUMS -s "$key" -t "$GITHUB_REPOSITORY $TAG $SHA"
+minisign -Sm dist/SHA256SUMS -s "$key" -t "$GITHUB_REPOSITORY $TAG $SHA" </dev/null
 minisign -Vm dist/SHA256SUMS -p release.pub
 (cd dist && sha256sum -c SHA256SUMS)
 # Recheck immutable identity immediately before publication; never --clobber.

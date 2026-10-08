@@ -2,7 +2,17 @@
 
 The template's `release.pub` authenticates template releases only. Obtain a publisher's public key through an independent trusted channel; a key bundled beside a downloaded artifact cannot establish trust by itself. Each generated app starts with an empty key file unless its definition supplies `releasePublicKey`.
 
-Create an app-specific key with Minisign, keeping its private file outside Git in an owner-only directory (0700, private file 0600). Commit only the public key. Store the private key as the `MINISIGN_SECRET_KEY` secret in the protected GitHub `release` environment; restrict deployments and require a trusted reviewer. Do not store keys in app definitions, source archives or release artifacts.
+For this noninteractive CI workflow, explicitly generate an **unencrypted** app-specific Minisign key with `-G -W`. Ordinary `minisign -G` creates a password-protected key and cannot be used with this workflow, which has no passphrase channel. Keep the private file outside Git in an owner-only directory (0700, private file 0600); the protected GitHub environment stores the CI secret encrypted. Commit only the public key.
+
+```sh
+umask 077
+mkdir -p "$HOME/.local/share/aaha/release-signing/example-aaha"
+chmod 700 "$HOME/.local/share/aaha/release-signing/example-aaha"
+minisign -G -W -s "$HOME/.local/share/aaha/release-signing/example-aaha/minisign.key" -p release.pub
+chmod 644 release.pub
+```
+
+Unsigned local builds may record Minisign as unavailable in metadata; signed releases require it. Store the private key as the `MINISIGN_SECRET_KEY` secret in the protected GitHub `release` environment; restrict deployments and require a trusted reviewer. Do not store keys in app definitions, source archives or release artifacts.
 
 Manual workflow dispatch takes an existing immutable `v<package-version>` tag and an empty draft release. It resolves the tag to a full commit SHA, checks tag/package/checkout agreement, validates and builds with publication disabled, signs `SHA256SUMS`, verifies the signature, and refuses replacement of published releases or existing draft assets. It rechecks the tag before publishing. Repository administrators must preserve release tags; workflow checks cannot prevent an administrator from changing history later.
 
