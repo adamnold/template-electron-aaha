@@ -3,6 +3,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 HOME_DIR="${AAHA_HOME:-$HOME}"
+[[ "$(id -u)" != 0 ]] || { echo "ERROR: Per-user uninstall must not run as root." >&2; exit 1; }
+node scripts/validate-config.js --template >/dev/null
+CONFIG_ROOT="$(node -p "require('./src/profiles.js').profileRoot()")"
 read_cfg() { node -p "require('./app.config.js').$1"; }
 APP_NAME="$(read_cfg productName)"
 REPO_NAME="$(read_cfg repoName)"
@@ -12,6 +15,7 @@ PROFILE_NAME="$(read_cfg profileName)"
 STATE_HOME="${AAHA_STATE_HOME:-${XDG_STATE_HOME:-$HOME_DIR/.local/state}}"
 RECEIPT_DIR="$STATE_HOME/aaha/$REPO_NAME"
 RECEIPT_FILE="$RECEIPT_DIR/install-root"
+[[ ! -L "$RECEIPT_FILE" ]] || { echo "ERROR: linked installation receipt." >&2; exit 1; }
 
 usage() {
   echo "Usage: ./uninstall.sh [--install-root /absolute/path/$REPO_NAME] [--purge]"
@@ -99,7 +103,7 @@ RECORDED_ROOT="$(validate_install_root "${RECORDED_ROOT:-}")" || exit $?
 
 INSTALL_MARKER="$INSTALL_ROOT/.aaha-install"
 if [[ -e "$INSTALL_ROOT" ]]; then
-  [[ -f "$INSTALL_MARKER" ]] &&
+  [[ -f "$INSTALL_MARKER" && ! -L "$INSTALL_MARKER" ]] &&
     grep -Fxq 'AAHA_INSTALL_V1' "$INSTALL_MARKER" &&
     grep -Fxq "repo=$REPO_NAME" "$INSTALL_MARKER" &&
     grep -Fxq "app_id=$APP_ID" "$INSTALL_MARKER" || {
@@ -118,10 +122,10 @@ for size in 16 24 32 48 64 96 128 256 512; do
 done
 
 if [[ "$PURGE" == "1" ]]; then
-  rm -rf -- "$HOME_DIR/.config/$PROFILE_NAME"
-  echo "Purged local profile: $HOME_DIR/.config/$PROFILE_NAME"
+  rm -rf -- "$CONFIG_ROOT/$PROFILE_NAME"
+  echo "Purged local profile: $CONFIG_ROOT/$PROFILE_NAME"
 else
-  echo "Preserved local profile: $HOME_DIR/.config/$PROFILE_NAME"
+  echo "Preserved local profile: $CONFIG_ROOT/$PROFILE_NAME"
 fi
 rm -f "$RECEIPT_FILE"
 rmdir "$RECEIPT_DIR" 2>/dev/null || true

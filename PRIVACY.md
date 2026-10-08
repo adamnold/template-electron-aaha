@@ -1,11 +1,9 @@
-# Privacy Model
+# Privacy
 
-Last Updated: 2026-07-23
+The wrapper adds no AAHA telemetry, crash reporting, analytics SDK or background update requests. The remotely loaded service still controls its own network traffic and telemetry. Electron/Chromium may retain upstream network behavior; this is not a claim of a completely Google-free runtime.
 
-This template adds no AAHA analytics or telemetry. It disables unnecessary Chromium background networking, component updates, domain-reliability reporting, Breakpad, Translate, Optimization Hints, Media Router, and Chromium Secure DNS.
+Shared defaults block selected telemetry hostnames. Generated definitions inherit them when `blockedHosts` is omitted; an explicit list replaces them and an empty list disables them. Review service compatibility. Request audit output records hostnames only, not full URLs, queries or tokens.
 
-These safeguards reduce optional background traffic; they do not make Chromium independently auditable, Google-free, anonymous, or network-silent. A generated application must document its service, CDN, authentication-provider, optional integration, and third-party traffic. Host blocklists are defense-in-depth and can become incomplete.
+Authentication and service state remain in the app's configured profile under the absolute XDG configuration root, or the user's `.config` fallback. Normal uninstall preserves it. Explicit purge removes that configured profile only; test migration using disposable profiles. Cookie encryption behavior is preserved.
 
-AAHA_NETWORK_AUDIT=1 prints each first-seen hostname. It must never print or commit full URLs, query strings, cookies, tokens, raw netlogs, or profile data.
-
-Electron stores cookies, sessions, caches, preferences, and local storage under the configured profile. Normal uninstall preserves it. uninstall.sh --purge removes the configured local profile but does not delete a cloud account.
+Notifications require the wrapper to remain running. No background notification mechanism is implemented. Service owners must describe upstream traffic and permissions accurately.

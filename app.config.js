@@ -1,7 +1,7 @@
 "use strict";
 
 module.exports = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   configured: false,
   repoName: "replace-me-aaha",
   productName: "REPLACE ME",
@@ -12,20 +12,9 @@ module.exports = {
   legacyProfileNames: [],
   compatibilityDesktopIds: [],
   url: "https://example.invalid",
-  trustedNavigationHosts: [],
-  trustedAuthHosts: [],
+  trustedNavigationOrigins: [],
+  trustedAuthOrigins: [],
   permissions: {},
-  blockedHosts: [
-    "clients2.google.com",
-    "clients4.google.com",
-    "update.googleapis.com",
-    "safebrowsing.googleapis.com",
-    "optimizationguide-pa.googleapis.com",
-    "redirector.gvt1.com",
-    "google-analytics.com",
-    "www.google-analytics.com",
-    "stats.g.doubleclick.net"
-  ],
   externalProtocols: ["http:", "https:", "mailto:"],
   openExternalLinks: true,
   width: 1280,

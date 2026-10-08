@@ -1,3 +1,10 @@
+# 3.0.0 — template-electron-aaha
+
+- Exact-origin configuration v3, fail-closed Linux sandbox launchers and hardened packaged fuses.
+- Signed AppImage installation without privileged sandbox helpers; manual authenticated releases and updates.
+- Electron 44.7.0, builder 26.17.0, Node 24.21.0 / npm 11.19.0, refreshed locking and shared privacy/profile defaults.
+- Public template identity; historical entries below retain their original release context.
+
 # Changelog
 
 Last Updated: 2026-09-25

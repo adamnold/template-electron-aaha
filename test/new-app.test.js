@@ -40,26 +40,34 @@ test("new-app creates a clean scaffold with synchronized locked identity", (t) =
     "utf8"
   );
   assert.equal(pkg.name, definition.repoName);
+  assert.equal(pkg.desktopName, definition.appId + ".desktop");
   assert.equal(pkg.version, definition.version);
   assert.equal(pkg.scripts.dist, "electron-builder --linux --publish never");
   assert.equal(lock.name, definition.repoName);
   assert.equal(lock.version, definition.version);
   assert.equal(lock.packages[""].name, definition.repoName);
   assert.equal(lock.packages[""].version, definition.version);
-  assert.match(workflow, /actions\/checkout@v7/);
-  assert.match(workflow, /actions\/setup-node@v7/);
+  assert.match(workflow, /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/);
+  assert.match(workflow, /actions\/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1/);
   const workflows = path.join(destination, ".github", "workflows");
   assert.equal(fs.existsSync(path.join(workflows, "release-template.yml")), false);
   const release = fs.readFileSync(path.join(workflows, "release.yml"), "utf8");
   assert.match(release, /workflow_dispatch:/);
-  assert.match(release, /^\s*- run: \.\/build\.sh$/m);
+  assert.match(release, /run: bash scripts\/release\.sh app/);
+  assert.equal(fs.readFileSync(path.join(destination, "release.pub"), "utf8"), "");
+  const generated = require(path.join(destination, "app.config.js"));
+  assert.deepEqual(generated.blockedHosts, require("../src/defaults.js").withDefaults({}).blockedHosts);
 });
 
-test("template release workflow is manual-only and archives the target commit", () => {
-  const wf = fs.readFileSync(path.join(root, ".github", "workflows", "release-template.yml"), "utf8");
+test("release workflow is manual-only and guards publication", () => {
+  const templateWorkflow = path.join(root, ".github", "workflows", "release-template.yml");
+  const isTemplate = fs.existsSync(templateWorkflow);
+  const wf = fs.readFileSync(isTemplate ? templateWorkflow : path.join(root, ".github", "workflows", "release.yml"), "utf8");
   const trigger = wf.slice(wf.indexOf("\non:"), wf.indexOf("\npermissions:"));
   assert.match(trigger, /workflow_dispatch:/);
   assert.doesNotMatch(trigger, /\b(push|pull_request|release|schedule):/);
-  assert.match(wf, /git archive --format=tar\.gz/);
-  assert.match(wf, /webapp-wrapper-aaha-\$TAG-SHA256SUMS/);
+  assert.ok(wf.includes(`run: bash scripts/release.sh ${isTemplate ? "template" : "app"}`));
+  const script = fs.readFileSync(path.join(root, "scripts/release.sh"), "utf8");
+  assert.match(script, /git archive --format=tar\.gz/);
+  assert.doesNotMatch(script, /gh release upload[^\n]*--clobber/);
 });

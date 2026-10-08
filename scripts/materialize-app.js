@@ -2,12 +2,13 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { validateConfig } = require("../src/policy.js");
+const { withDefaults } = require("../src/defaults.js");
 const [destination, definitionPath] = process.argv.slice(2);
 if (!destination || !definitionPath) {
   console.error("materialize-app.js requires destination and definition paths.");
   process.exit(2);
 }
-const definition = JSON.parse(fs.readFileSync(definitionPath, "utf8"));
+const definition = withDefaults(JSON.parse(fs.readFileSync(definitionPath, "utf8")));
 const errors = validateConfig(definition);
 if (errors.length) {
   console.error(errors.map((error) => "- " + error).join("\n"));
@@ -20,6 +21,9 @@ pkg.productName = definition.productName;
 pkg.version = definition.version || "0.1.0";
 pkg.description = definition.description;
 pkg.private = false;
+pkg.templateVersion = "3.0.0";
+pkg.repository.url = definition.repository || `https://github.com/adamnold/${definition.repoName}.git`;
+pkg.desktopName = definition.appId + ".desktop";
 pkg.build.appId = definition.appId;
 pkg.build.productName = definition.productName;
 pkg.build.linux.executableName = definition.executable;
@@ -46,3 +50,5 @@ fs.writeFileSync(
   path.join(destination, "app.config.js"),
   '"use strict";\n\nmodule.exports = ' + JSON.stringify(definition, null, 2) + ";\n"
 );
+// Each application owns its release trust. Never inherit the template's key.
+fs.writeFileSync(path.join(destination, "release.pub"), definition.releasePublicKey ? definition.releasePublicKey.trim() + "\n" : "");

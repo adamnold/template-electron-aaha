@@ -3,7 +3,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 HOME_DIR="${AAHA_HOME:-$HOME}"
-SKIP_SANDBOX="${AAHA_SKIP_SANDBOX_SETUP:-0}"
+[[ "$(id -u)" != 0 ]] || { echo "ERROR: Per-user installation must not run as root." >&2; exit 1; }
+node scripts/validate-config.js --template >/dev/null
+CONFIG_ROOT="$(node -p "require('./src/profiles.js').profileRoot()")"
+LOCAL_BUILD=0
+PUBLIC_KEY="$PWD/release.pub"
 read_cfg() { node -p "require('./app.config.js').$1"; }
 APP_NAME="$(read_cfg productName)"
 REPO_NAME="$(read_cfg repoName)"
@@ -17,7 +21,7 @@ KEYWORDS="$(read_cfg keywords)"
 VERSION="$(node -p "require('./package.json').version")"
 
 usage() {
-  echo "Usage: ./install.sh [--install-root /absolute/path/$REPO_NAME]"
+  echo "Usage: ./install.sh [--install-root /absolute/path/$REPO_NAME] [--public-key /trusted/release.pub] [--local-build]"
   echo "  default         Install under ~/.local/opt/aaha/$REPO_NAME."
   echo "  --install-root  Use an explicit per-application installation directory."
 }
@@ -30,6 +34,12 @@ while [[ $# -gt 0 ]]; do
       REQUESTED_ROOT="$2"
       shift 2
       ;;
+    --local-build)
+      [[ "$LOCAL_BUILD" == 0 ]] || { usage >&2; exit 2; }
+      LOCAL_BUILD=1; shift ;;
+    --public-key)
+      [[ $# -ge 2 && "$2" == /* ]] || { usage >&2; exit 2; }
+      PUBLIC_KEY="$2"; shift 2 ;;
     -h|--help)
       [[ $# -eq 1 ]] || { usage >&2; exit 2; }
       usage
@@ -74,65 +84,67 @@ validate_install_root() {
 }
 
 DEFAULT_INSTALL_ROOT="$HOME_DIR/.local/opt/aaha/$REPO_NAME"
-INSTALL_ROOT="$(validate_install_root "${REQUESTED_ROOT:-$DEFAULT_INSTALL_ROOT}")" || exit $?
 STATE_HOME="${AAHA_STATE_HOME:-${XDG_STATE_HOME:-$HOME_DIR/.local/state}}"
 RECEIPT_DIR="$STATE_HOME/aaha/$REPO_NAME"
 RECEIPT_FILE="$RECEIPT_DIR/install-root"
+[[ ! -L "$RECEIPT_FILE" ]] || { echo "ERROR: linked installation receipt." >&2; exit 1; }
+if [[ -z "$REQUESTED_ROOT" && -f "$RECEIPT_FILE" ]]; then
+  IFS= read -r REQUESTED_ROOT < "$RECEIPT_FILE" || true
+fi
+INSTALL_ROOT="$(validate_install_root "${REQUESTED_ROOT:-$DEFAULT_INSTALL_ROOT}")" || exit $?
 INSTALL_MARKER="$INSTALL_ROOT/.aaha-install"
 APP_DEST="$INSTALL_ROOT/app"
-STAGE_DEST="$INSTALL_ROOT/.app-new-$$"
-BUILT_APP="$PWD/dist/linux-unpacked"
-
-if [[ ! -x "$BUILT_APP/$EXECUTABLE" ]]; then
-  echo "ERROR: Built executable not found. Run ./build.sh first." >&2
-  exit 1
+if [[ -e "$APP_DEST" || -L "$APP_DEST" ]]; then
+  [[ ! -L "$APP_DEST" && -d "$APP_DEST" && -f "$INSTALL_MARKER" && ! -L "$INSTALL_MARKER" ]] &&
+    grep -Fxq 'AAHA_INSTALL_V1' "$INSTALL_MARKER" &&
+    grep -Fxq "repo=$REPO_NAME" "$INSTALL_MARKER" &&
+    grep -Fxq "app_id=$APP_ID" "$INSTALL_MARKER" || {
+      echo "ERROR: Existing installation identity is invalid; refusing replacement." >&2; exit 1;
+    }
 fi
-if [[ -f dist/SHA256SUMS ]]; then
-  (cd dist && sha256sum -c SHA256SUMS)
-else
-  echo "ERROR: dist/SHA256SUMS is missing." >&2
-  exit 1
+verify_args=(--public-key "$PUBLIC_KEY")
+if [[ "$LOCAL_BUILD" == 1 ]]; then
+  verify_args+=(--local-build)
+  echo "Local build: publisher authentication was explicitly skipped." >&2
 fi
-
+APPIMAGE_NAME="$(node scripts/verify-artifacts.js dist "${verify_args[@]}")"
+# Authentication completes before creating/changing the installation root.
 mkdir -p "$INSTALL_ROOT"
-rm -rf -- "$STAGE_DEST"
-cp -a "$BUILT_APP" "$STAGE_DEST"
-PRESERVED_SANDBOX=0
-STAGED_SANDBOX="$STAGE_DEST/chrome-sandbox"
-INSTALLED_SANDBOX="$APP_DEST/chrome-sandbox"
-restore_preserved_sandbox() {
-  if [[ "$PRESERVED_SANDBOX" == "1" && -f "$STAGED_SANDBOX" && -d "$APP_DEST" ]]; then
-    mv "$STAGED_SANDBOX" "$INSTALLED_SANDBOX" 2>/dev/null || true
-  fi
+STAGE_DEST="$(mktemp -d "$INSTALL_ROOT/.stage.XXXXXXXX")"
+APP_REPLACED=0
+rollback() {
+  if [[ "$APP_REPLACED" == 1 ]]; then rm -rf -- "$APP_DEST"; fi
+  if [[ -d "$STAGE_DEST/previous" && ! -e "$APP_DEST" ]]; then mv "$STAGE_DEST/previous" "$APP_DEST"; fi
+  rm -rf -- "$STAGE_DEST"
 }
-trap restore_preserved_sandbox EXIT
-if [[ -f "$INSTALLED_SANDBOX" && -f "$STAGED_SANDBOX" ]] &&
-   [[ "$(stat -c '%u:%g:%a' "$INSTALLED_SANDBOX")" == "0:0:4755" ]] &&
-   cmp -s "$INSTALLED_SANDBOX" "$STAGED_SANDBOX"; then
-  rm -f "$STAGED_SANDBOX"
-  mv "$INSTALLED_SANDBOX" "$STAGED_SANDBOX"
-  PRESERVED_SANDBOX=1
-fi
-rm -rf -- "$APP_DEST"
-mv "$STAGE_DEST" "$APP_DEST"
-PRESERVED_SANDBOX=0
-trap - EXIT
+trap rollback EXIT
+cp -P -- "dist/$APPIMAGE_NAME" dist/SHA256SUMS "$STAGE_DEST/"
+for metadata in SHA256SUMS.minisig BUILDINFO.json; do
+  if [[ -e "dist/$metadata" || -L "dist/$metadata" ]]; then cp -P -- "dist/$metadata" "$STAGE_DEST/"; fi
+ done
+node scripts/verify-artifacts.js "$STAGE_DEST" "${verify_args[@]}" >/dev/null
+chmod 0755 "$STAGE_DEST/$APPIMAGE_NAME"
+(cd "$STAGE_DEST" && "./$APPIMAGE_NAME" --appimage-extract >/dev/null)
+EXTRACTED="$STAGE_DEST/squashfs-root"
+[[ -d "$EXTRACTED" && ! -L "$EXTRACTED" && -f "$EXTRACTED/$EXECUTABLE" && ! -L "$EXTRACTED/$EXECUTABLE" && -x "$EXTRACTED/$EXECUTABLE" ]] || {
+  echo "ERROR: Verified image does not contain the expected application launcher." >&2; exit 1;
+}
+for size in 16 24 32 48 64 96 128 256 512; do
+  icon="$EXTRACTED/aaha-icons/${size}x${size}.png"
+  [[ -f "$icon" && ! -L "$icon" ]] || { echo "ERROR: Verified image has missing or linked icons." >&2; exit 1; }
+done
+rm -f -- "$EXTRACTED/chrome-sandbox"
+if [[ -d "$APP_DEST" ]]; then mv "$APP_DEST" "$STAGE_DEST/previous"; fi
+mv "$EXTRACTED" "$APP_DEST"
+APP_REPLACED=1
 
-SANDBOX_HELPER="$APP_DEST/chrome-sandbox"
-if [[ -f "$SANDBOX_HELPER" && "$SKIP_SANDBOX" != "1" ]]; then
-  if [[ "$(stat -c '%u:%g:%a' "$SANDBOX_HELPER")" != "0:0:4755" ]]; then
-    sudo chown root:root "$SANDBOX_HELPER"
-    sudo chmod 4755 "$SANDBOX_HELPER"
-  fi
-fi
-
-NEW_PROFILE="$HOME_DIR/.config/$PROFILE_NAME"
+NEW_PROFILE="$CONFIG_ROOT/$PROFILE_NAME"
 if [[ ! -e "$NEW_PROFILE" ]]; then
   while IFS= read -r old_profile; do
     [[ -n "$old_profile" ]] || continue
-    OLD_PROFILE="$HOME_DIR/.config/$old_profile"
+    OLD_PROFILE="$CONFIG_ROOT/$old_profile"
     if [[ -d "$OLD_PROFILE" ]]; then
-      PROFILE_STAGE="$HOME_DIR/.config/.${PROFILE_NAME}.migration-$$"
+      PROFILE_STAGE="$CONFIG_ROOT/.${PROFILE_NAME}.migration-$$"
       rm -rf -- "$PROFILE_STAGE"
       cp -a "$OLD_PROFILE" "$PROFILE_STAGE"
       mv "$PROFILE_STAGE" "$NEW_PROFILE"
@@ -145,7 +157,7 @@ fi
 for size in 16 24 32 48 64 96 128 256 512; do
   icon_dir="$HOME_DIR/.local/share/icons/hicolor/${size}x${size}/apps"
   mkdir -p "$icon_dir"
-  cp "build/icons/${size}x${size}.png" "$icon_dir/$ICON_NAME.png"
+  cp "$APP_DEST/aaha-icons/${size}x${size}.png" "$icon_dir/$ICON_NAME.png"
 done
 apps_dir="$HOME_DIR/.local/share/applications"
 mkdir -p "$apps_dir"
@@ -182,14 +194,13 @@ NoDisplay=true
 EOF
 done < <(node -e "for (const p of require('./app.config.js').compatibilityDesktopIds) console.log(p)")
 
-find "$INSTALL_ROOT" -maxdepth 1 -type f -name '*.AppImage' -delete
-mapfile -t built_appimages < <(find dist -maxdepth 1 -type f -name '*.AppImage')
-if [[ ${#built_appimages[@]} -ne 1 ]]; then
-  echo "ERROR: expected exactly one AppImage in dist/, found ${#built_appimages[@]}. Run ./build.sh again." >&2
-  exit 1
-fi
-cp "${built_appimages[0]}" "$INSTALL_ROOT/"
-cp dist/SHA256SUMS "$INSTALL_ROOT/"
+find "$INSTALL_ROOT" -maxdepth 1 -type f -name "$REPO_NAME-*.AppImage" -delete
+cp -- "$STAGE_DEST/$APPIMAGE_NAME" "$INSTALL_ROOT/"
+cp -- "$STAGE_DEST/SHA256SUMS" "$INSTALL_ROOT/"
+for metadata in SHA256SUMS.minisig BUILDINFO.json; do
+  rm -f -- "$INSTALL_ROOT/$metadata"
+  if [[ -f "$STAGE_DEST/$metadata" ]]; then cp -- "$STAGE_DEST/$metadata" "$INSTALL_ROOT/"; fi
+ done
 printf 'AAHA_INSTALL_V1\nrepo=%s\napp_id=%s\n' "$REPO_NAME" "$APP_ID" > "$INSTALL_MARKER"
 chmod 0644 "$INSTALL_MARKER"
 mkdir -p "$RECEIPT_DIR"
@@ -203,4 +214,6 @@ if [[ "${AAHA_SKIP_DESKTOP_REFRESH:-0}" != "1" ]]; then
   gtk-update-icon-cache "$HOME_DIR/.local/share/icons/hicolor" 2>/dev/null || true
   kbuildsycoca6 2>/dev/null || kbuildsycoca5 2>/dev/null || true
 fi
+rm -rf -- "$STAGE_DEST"
+trap - EXIT
 echo "Installed $APP_NAME v$VERSION under $INSTALL_ROOT"

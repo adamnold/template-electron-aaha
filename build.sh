@@ -15,9 +15,10 @@ if [[ ${#appimages[@]} -ne 1 ]]; then
   exit 1
 fi
 appimage="${appimages[0]}"
+node scripts/build-info.js dist
 (
   cd dist
-  sha256sum "$(basename "$appimage")" > SHA256SUMS
+  sha256sum "$(basename "$appimage")" BUILDINFO.json > SHA256SUMS
   sha256sum -c SHA256SUMS
 )
 echo "Build complete: $appimage"

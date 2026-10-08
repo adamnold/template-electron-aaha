@@ -1,17 +1,13 @@
-name: Release
-# Manual-only: builds the AppImage from the commit a draft release targets,
-# attaches it with SHA256SUMS, then publishes that draft. Never runs on push
-# or pull requests, and electron-builder itself stays `--publish never`.
+name: Signed application release
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing draft release tag to build and publish (for example v1.0.0)"
+        description: Existing immutable tag and empty draft release
         required: true
         type: string
       prerelease:
-        description: "Publish as a pre-release instead of the latest release"
-        required: false
+        description: Publish as a prerelease
         type: boolean
         default: false
 permissions:
@@ -20,41 +16,32 @@ concurrency:
   group: release
   cancel-in-progress: false
 jobs:
-  build-and-publish:
-    runs-on: ubuntu-latest
+  release:
+    runs-on: ubuntu-24.04
+    environment: release
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ inputs.tag }}
       PRERELEASE: ${{ inputs.prerelease }}
     steps:
-      - name: Resolve draft release target
+      - name: Resolve tag to a full commit
         id: target
         run: |
           set -euo pipefail
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid tag: $TAG" >&2; exit 1; }
-          draft="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
-          [[ "$draft" == "true" ]] || { echo "$TAG is not a draft release" >&2; exit 1; }
-          target="$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name == \"$TAG\") | .target_commitish")"
-          echo "sha=$target" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v7
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          [[ "$sha" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ steps.target.outputs.sha }}
-      - uses: actions/setup-node@v7
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 22
+          node-version: 24.21.0
           cache: npm
-      - run: sudo apt-get update && sudo apt-get install -y imagemagick
-      - name: Confirm package version matches tag
-        run: test "v$(node -p "require('./package.json').version")" = "$TAG"
-      - run: ./build.sh
-      - name: Attach artifacts and publish
-        run: |
-          set -euo pipefail
-          mapfile -t images < <(find dist -maxdepth 1 -type f -name '*.AppImage')
-          [[ ${#images[@]} -eq 1 ]] || { echo "Expected exactly one AppImage" >&2; exit 1; }
-          gh release upload "$TAG" "${images[0]}" dist/SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
-          if [[ "$PRERELEASE" == "true" ]]; then
-            gh release edit "$TAG" --draft=false --prerelease --repo "$GITHUB_REPOSITORY"
-          else
-            gh release edit "$TAG" --draft=false --prerelease=false --latest --repo "$GITHUB_REPOSITORY"
-          fi
+      - run: sudo apt-get update && sudo apt-get install -y imagemagick minisign
+      - name: Validate, sign, and publish
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: bash scripts/release.sh app

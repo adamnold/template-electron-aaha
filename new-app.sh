@@ -20,8 +20,8 @@ if [[ ! -f "$DEFINITION" ]]; then
   exit 1
 fi
 mkdir -p "$DEST"
-cp -a .github LICENSE NOTICE README.md PRIVACY.md CONTRIBUTING.md CHANGELOG.md \
-  package.json package-lock.json app.config.js src scripts test templates \
+cp -a .github LICENSE NOTICE README.md PRIVACY.md CONTRIBUTING.md CHANGELOG.md MIGRATION.md SIGNING.md HARDENING.md PROTON-HANDBACK.md DEPENDENCIES.md VALIDATION.md \
+  package.json package-lock.json app.config.js .node-version .npmrc .gitignore src scripts test templates \
   build.sh install.sh uninstall.sh new-app.sh "$DEST/"
 # Generated apps publish AppImages, not template archives.
 rm -f "$DEST/.github/workflows/release-template.yml"
