@@ -11,10 +11,14 @@ function fixture(t) {
   fs.copyFileSync(path.join(__dirname, "../scripts/launch.sh"), launcher);
   fs.writeFileSync(launcher + ".bin", '#!/bin/sh\nprintf "%s\\n" "$@"\n'); fs.chmodSync(launcher + ".bin", 0o755);
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  return { root, launcher };
+  const bin = path.join(root, "bin"); fs.mkdirSync(bin, { recursive: true });
+  // The native fixture is inert; model kernel capability here. Live smoke tests
+  // use the actual namespace probe and inspect renderer isolation separately.
+  fs.writeFileSync(path.join(bin, "unshare"), '#!/bin/sh\n[ "$*" = "-Ur true" ] || exit 99\nexit 0\n'); fs.chmodSync(path.join(bin, "unshare"), 0o755);
+  return { root, launcher, bin };
 }
 function run(f, args = [], env = {}) {
-  return spawnSync("bash", [f.launcher, ...args], { encoding: "utf8", env: { ...process.env, ...env } });
+  return spawnSync("bash", [f.launcher, ...args], { encoding: "utf8", env: { ...process.env, PATH: `${f.bin}:${process.env.PATH}`, ...env } });
 }
 test("launcher selects namespace sandbox before native execution and preserves URL arguments", t => {
   const f = fixture(t); const r = run(f, ["https://example.com/path?q=space value"]);
@@ -32,14 +36,14 @@ test("launcher refuses sandbox-disabling switches and environment presence", t =
   }
 });
 test("namespace failure stops before the native executable runs", t => {
-  const f = fixture(t); const bin = path.join(f.root, "bin"); fs.mkdirSync(bin);
+  const f = fixture(t); const bin = path.join(f.root, "bin"); fs.mkdirSync(bin, { recursive: true });
   fs.writeFileSync(path.join(bin, "unshare"), "#!/bin/sh\nexit 1\n"); fs.chmodSync(path.join(bin, "unshare"), 0o755);
   const r = run(f, [], { PATH: `${bin}:${process.env.PATH}` });
   assert.notEqual(r.status, 0); assert.equal(r.stdout, ""); assert.match(r.stderr, /namespace/i);
 });
 
 test("root execution fails before native code",t => {
-  const f=fixture(t);const bin=path.join(f.root,"bin");fs.mkdirSync(bin);
+  const f=fixture(t);const bin=path.join(f.root,"bin");fs.mkdirSync(bin, { recursive: true });
   fs.writeFileSync(path.join(bin,"id"),"#!/bin/sh\necho 0\n");fs.chmodSync(path.join(bin,"id"),0o755);
   const r=run(f,[],{PATH:`${bin}:${process.env.PATH}`});assert.notEqual(r.status,0);assert.equal(r.stdout,"");
   assert.deepEqual(require("../src/launch-policy.js").launchErrors([],{},0),["Run this per-user application without root privileges."]);
